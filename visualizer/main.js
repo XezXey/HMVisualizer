@@ -260,7 +260,7 @@ function loadCameraData(jsonData) {
 
 async function loadMotionData() {
     try {
-        const response = await fetch("motions_run.json");
+        const response = await fetch("motions.json");
         const jsonData = await response.json();
         motionData = jsonData.motions;
         loadCameraData(jsonData);
