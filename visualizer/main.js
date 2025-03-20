@@ -4,13 +4,19 @@ import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import * as dat from 'dat.gui'; // Import dat.GUI
 
 let scene, camera, renderer, controls, cb;
+let camFrustum, camHelper;
 let motionData = []; // Will hold the full [B, 22, 3, 120] array
+let extrinsics = [];
+let focalLength = [];
+let cameraCenter = [];
 let skeleton, bones, currentMotionIndex = 0, currentFrame = 0;
 let motionControl = { motion: 0 };
 let motionController; // We'll keep this reference to update the GUI
+let frameController;
 let shadowVisibilityController;
 const numJoints = 22;
 const framesPerMotion = 120;
+const frameControl = { frameIndex: 0 };
 const JOINT_CONNECTIONS = [
   [0, 1], [1, 4], [4, 7], [7, 10], // Left leg
   [0, 2], [2, 5], [5, 8], [8, 11],  // Right leg
@@ -40,47 +46,6 @@ const config = {
   animate: true,
 };
 
-const views = [
-  {
-    left: 0.304,
-    bottom: 0,
-    width: 0.7,
-    height: 1.0,
-    background: new THREE.Color( 0xFFFFFF ),
-    eye: [ 0, 300, 1800 ],
-    up: [ 0, 1, 0 ],
-  },
-  {
-    left: 0,
-    bottom: 2.0/3,
-    width: 0.3,
-    height: 1.0/3,
-    background: new THREE.Color(0xeFefef),
-    eye: [ 0, 2, 20 ],
-    lookAt: [0, 2, -20],
-    up: [ 0, 1, 0 ],
-  },
-  {
-    left: 0,
-    bottom: 1.0/3,
-    width: 0.3,
-    height: 1.0/3,
-    background: new THREE.Color(0xe6e6e6),
-    eye: [ 20, 2, 0 ],
-    lookAt: [-20, 2, 0],
-    up: [ 0, 1, 0 ],
-  },
-  {
-    left: 0,
-    bottom: 0,
-    width: 0.3,
-    height: 1.0/3,
-    background: new THREE.Color(0xe6e6e6),
-    eye: [ 0, 40, 0],
-    lookAt: [0, 0, 0],
-    up: [ 0, 0, -1 ],
-  }
-];
 function addCheckerboard(patch_size, size) {
   let rep = Math.ceil(size / patch_size);
   
@@ -182,8 +147,23 @@ function init() {
     addCheckerboard(config.patch_size, config.cb_size);
 
     loadMotionData();
+    createCameraFrustum();
     addKeyboardNavigation();
     animate();
+}
+
+function createCameraFrustum() {
+    // Create a PerspectiveCamera with arbitrary parameters
+    camFrustum = new THREE.PerspectiveCamera(
+        45,   // FOV
+        1.0,  // aspect ratio
+        0.5,  // near
+        3    // far
+    );
+
+    // Attach a helper
+    camHelper = new THREE.CameraHelper(camFrustum);
+    scene.add(camHelper);
 }
 
 async function loadMotionData() {
@@ -191,6 +171,9 @@ async function loadMotionData() {
         const response = await fetch("motions.json");
         const jsonData = await response.json();
         motionData = jsonData.motions;
+        extrinsics = jsonData.E;    // B x T x 4 x 4
+        focalLength = jsonData.focal_length;
+        cameraCenter = jsonData.camera_center;
 
         console.log(`Loaded ${motionData.length} motions.`);
         createSkeleton();
@@ -268,44 +251,124 @@ function updateSkeleton() {
     }
 }
 
+function updateCameraFrustum() {
+    const currentCameraFrustum = extrinsics[currentMotionIndex][currentFrame];
+    // console.log("At time : ", currentFrame, currentCameraCenter, currentFocalLength);
+    const m = buildTransformMatrix(currentCameraFrustum);
+    m.invert();
+    camFrustum.matrix.copy(m);
+    camFrustum.matrixAutoUpdate = false;
+
+    // const currentCameraCenter = cameraCenter[currentMotionIndex];
+    // const currentFocalLength = focalLength[currentMotionIndex];
+    // const fx = currentFocalLength[0];
+    // const fy = currentFocalLength[0];
+    // const cx = currentCameraCenter[0];
+    // const cy = currentCameraCenter[1];
+    // const w = 545;
+    // const h = 544;
+    // const s = 1.0
+    // const near = 0.1;
+    // const far = 1000;
+    // camFrustum.projectionMatrixAutoUpdate = false;  // We'll set the projection matrix ourselves
+    // camFrustum.projectionMatrix.set(
+    //     // row-major order
+    //     2 * fx / w,     2 * s / w,        (2 * cx / w) - 1,    0,
+    //     0,              2 * fy / h,       (2 * cy / h) - 1,    0,
+    //     0,              0,                -(far + near)/(far - near),  -1,
+    //     0,              0,                -2*far*near/(far - near),    0
+    // );
+    camFrustum.updateMatrixWorld(true); 
+
+    camHelper.update();
+}
+
+function buildTransformMatrix(E) {
+  // R is shape [3, 3], T is shape [3]
+  const m = new THREE.Matrix4();
+
+  // Row-major order:
+  // [ R[0][0], R[0][1], R[0][2], T[0] ]
+  // [ R[1][0], R[1][1], R[1][2], T[1] ]
+  // [ R[2][0], R[2][1], R[2][2], T[2] ]
+  // [    0   ,    0   ,    0   ,   1  ]
+  m.set(
+    E[0][0], E[0][1], E[0][2], E[0][3],
+    E[1][0], E[1][1], E[1][2], E[1][3],
+    E[2][0], E[2][1], E[2][2], E[2][3],
+    E[3][0], E[3][1], E[3][2], E[3][3]
+  );
+  return m;
+}
+
+
+
 function animate() {
     requestAnimationFrame(animate);
 
     if (motionData.length > 0) {
-        currentFrame = (currentFrame + 1) % framesPerMotion;
+        if (config.animate){
+            currentFrame = (currentFrame + 1) % framesPerMotion;
+        }
+        frameControl.frameIndex = currentFrame;
+        if (frameController) frameController.updateDisplay();
         updateSkeleton();
+        updateCameraFrustum();
     }
 
     controls.update();
     renderer.render(scene, camera);
+    // renderer.render(scene, camFrustum);
 }
 
 function createGUI() {
     const gui = new dat.GUI();
-    
-    // Sync the local "motionControl" object with the currentMotionIndex
+
+    // 1) Motion Index Dropdown
     motionControl.motion = currentMotionIndex;
-    
+
     // Create an array of numeric indices [0, 1, 2, ..., B-1]
     const options = [...Array(motionData.length).keys()];
     console.log("Available motion options:", options);
 
-    // Keep a reference to the controller in "motionController"
     motionController = gui.add(motionControl, 'motion', options)
         .name('Motion')
         .onChange(value => {
             currentMotionIndex = value;
+            // reset the frame to 0
             currentFrame = 0;
+            frameControl.frameIndex = 0;
+            
+            if (frameController) {
+                frameController.updateDisplay(); // refresh slider
+            }
+
+            // Immediately show the new motion at frame 0
+            updateSkeleton();
+            updateCameraFrustum();
             console.log(`Switched to motion index ${currentMotionIndex}`);
         });
-    shadowVisibilityController = gui.add(config, 'shadow')
-      .name('Shadow')
+
+    // 2) Frame Slider
+    frameControl.frameIndex = currentFrame;
+    frameController = gui.add(frameControl, 'frameIndex', 0, framesPerMotion - 1, 1)
+        .name('Frame')
+        .onChange(value => {
+            currentFrame = value;
+            console.log(`Switched to frame ${currentFrame}`);
+            updateSkeleton();    
+            updateCameraFrustum();
+        });
+
+    // 3) Autoplay (Animate) Checkbox
+    gui.add(config, 'animate')
+      .name('Animate')
       .onChange(value => {
-      config.shadow = value;
-      renderer.shadowMap.enabled = value;
-      console.log("Shadow status: ", value);
-    });
+        console.log("Animate (Autoplay) is now:", value);
+        // No direct action needed here, but we’ll use `config.animate` in the animation loop
+      });
 }
+
 
 function addKeyboardNavigation() {
     document.addEventListener("keydown", (event) => {
