@@ -4,7 +4,8 @@ import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import * as dat from 'dat.gui'; // Import dat.GUI
 
 let scene, camera, renderer, controls, cb;
-let camFrustum, camHelper;
+let estimatedCam, estimatedCamHelper;
+let followCam, followCamHelper;
 let motionData = []; // Will hold the full [B, 22, 3, 120] array
 let extrinsics = [];
 let focalLength = [];
@@ -24,6 +25,8 @@ const JOINT_CONNECTIONS = [
   [12, 13], [13, 16], [16, 18], [18, 20], // Left arm
   [12, 14], [14, 17], [17, 19], [19, 21],  // Right arm
 ];
+const rootJointIndex = 0; // if 0 is your skeleton’s root
+const followOffset = new THREE.Vector3(0, 2, 3); // some offset behind & above
 
 const config = {
   dirlightRadius: 4,
@@ -44,7 +47,18 @@ const config = {
   patch_size: 1.25,
   cb_size: 12,
   animate: true,
+  showEstimatedCamHelper: false,
+  showFollowCamHelper: false,
 };
+
+function createIdentity4x4() {
+  return [
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1],
+  ];
+}
 
 function addCheckerboard(patch_size, size) {
   let rep = Math.ceil(size / patch_size);
@@ -145,36 +159,111 @@ function init() {
     controls.dampingFactor = 0.25;
 
     addCheckerboard(config.patch_size, config.cb_size);
-
     loadMotionData();
-    createCameraFrustum();
+    createCameras();
     addKeyboardNavigation();
+    
+    render();
+
     animate();
+
+    // (Optional) Add some geometry/axes to see orientation
+    const axes = new THREE.AxesHelper(3);
+    scene.add(axes);
 }
 
-function createCameraFrustum() {
-    // Create a PerspectiveCamera with arbitrary parameters
-    camFrustum = new THREE.PerspectiveCamera(
-        45,   // FOV
-        1.0,  // aspect ratio
-        0.5,  // near
-        3    // far
-    );
+function render() {
+    // 1) Fullscreen render
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+    renderer.setScissorTest(false);
+    renderer.clear();
+    renderer.render(scene, camera);
 
-    // Attach a helper
-    camHelper = new THREE.CameraHelper(camFrustum);
-    scene.add(camHelper);
+    // 2) followCam render
+    const overlayWidth = 640;
+    const overlayHeight = 480;
+    renderer.setViewport(0, 0, overlayWidth, overlayHeight);
+    renderer.setScissor(0, 0, overlayWidth, overlayHeight);
+    renderer.setScissorTest(true);
+    renderer.clearDepth();
+    renderer.render(scene, followCam);
+
+    // 3) estimatedCam render
+    renderer.setViewport(overlayWidth, 0, overlayWidth, overlayHeight);
+    renderer.setScissor(overlayWidth, 0, overlayWidth, overlayHeight);
+    renderer.setScissorTest(true);
+    renderer.clearDepth();
+    renderer.render(scene, estimatedCam);
+}
+
+function createCameras() {
+  // 1) Estimated Camera (using extrinsics, matrixAutoUpdate = false)
+  estimatedCam = new THREE.PerspectiveCamera(45, 1.0, 0.5, 3);
+  estimatedCam.matrixAutoUpdate = false; // We'll set a 4x4 matrix from extrinsics
+  estimatedCamHelper = new THREE.CameraHelper(estimatedCam);
+  estimatedCamHelper.visible = false;
+  scene.add(estimatedCamHelper);
+
+  // 2) Follow Camera (normal perspective camera)
+  followCam = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+  followCam.position.set(2, 2, 5);
+  followCamHelper = new THREE.CameraHelper(followCam);
+  followCamHelper.visible = false;
+  scene.add(followCamHelper);
+}
+
+function loadCameraData(jsonData) {
+    const B = jsonData.motions.length;
+    const T = jsonData.motions[0][0][0].length;
+    focalLength = jsonData.focal_length;    // B x T x 1
+    if (!focalLength) {
+        console.log("No focal_length found. Creating dummy array with shape [B, T, 1].");
+        focalLength = [];
+        for (let b = 0; b < B; b++) {
+            focalLength[b] = [];
+            for (let t = 0; t < T; t++) {
+                focalLength[b][t] = [1.0];
+            }
+        }
+    }
+    extrinsics = jsonData.E;    // B x T x 4 x 4
+    if (!extrinsics) {
+        console.log("No extrinsics found. Creating dummy E with shape [B, T, 4, 4].");
+        extrinsics = [];
+        for (let b = 0; b < B; b++) {
+            extrinsics[b] = [];
+            for (let t = 0; t < T; t++) {
+                extrinsics[b][t] = createIdentity4x4();
+            }
+        }
+    }
+    
+    cameraCenter = jsonData.camera_center;
+    if (!cameraCenter) {
+        console.log("No camera_center found. Creating dummy array with shape [B, T, 2].");
+        cameraCenter = [];
+        for (let b = 0; b < B; b++) {
+            cameraCenter[b] = [];
+            for (let t = 0; t < T; t++) {
+                cameraCenter[b][t] = [0, 0];
+            }
+        }
+    }
+    return [extrinsics, focalLength, cameraCenter];
 }
 
 async function loadMotionData() {
     try {
-        const response = await fetch("motions.json");
+        const response = await fetch("motions_run.json");
         const jsonData = await response.json();
         motionData = jsonData.motions;
-        extrinsics = jsonData.E;    // B x T x 4 x 4
-        focalLength = jsonData.focal_length;
-        cameraCenter = jsonData.camera_center;
-
+        loadCameraData(jsonData);
         console.log(`Loaded ${motionData.length} motions.`);
         createSkeleton();
         createGUI(); // Now that data is loaded, create the GUI
@@ -251,36 +340,16 @@ function updateSkeleton() {
     }
 }
 
-function updateCameraFrustum() {
+function updateEstimatedCamera() {
     const currentCameraFrustum = extrinsics[currentMotionIndex][currentFrame];
     // console.log("At time : ", currentFrame, currentCameraCenter, currentFocalLength);
     const m = buildTransformMatrix(currentCameraFrustum);
     m.invert();
-    camFrustum.matrix.copy(m);
-    camFrustum.matrixAutoUpdate = false;
+    estimatedCam.matrix.copy(m);
+    estimatedCam.matrixAutoUpdate = false;
+    estimatedCam.updateMatrixWorld(true); 
 
-    // const currentCameraCenter = cameraCenter[currentMotionIndex];
-    // const currentFocalLength = focalLength[currentMotionIndex];
-    // const fx = currentFocalLength[0];
-    // const fy = currentFocalLength[0];
-    // const cx = currentCameraCenter[0];
-    // const cy = currentCameraCenter[1];
-    // const w = 545;
-    // const h = 544;
-    // const s = 1.0
-    // const near = 0.1;
-    // const far = 1000;
-    // camFrustum.projectionMatrixAutoUpdate = false;  // We'll set the projection matrix ourselves
-    // camFrustum.projectionMatrix.set(
-    //     // row-major order
-    //     2 * fx / w,     2 * s / w,        (2 * cx / w) - 1,    0,
-    //     0,              2 * fy / h,       (2 * cy / h) - 1,    0,
-    //     0,              0,                -(far + near)/(far - near),  -1,
-    //     0,              0,                -2*far*near/(far - near),    0
-    // );
-    camFrustum.updateMatrixWorld(true); 
-
-    camHelper.update();
+    estimatedCamHelper.update();
 }
 
 function buildTransformMatrix(E) {
@@ -301,6 +370,21 @@ function buildTransformMatrix(E) {
   return m;
 }
 
+function updateFollowCamera() {
+  // 1) Suppose `skeleton[rootJointIndex]` is the root joint mesh
+  const rootPos = skeleton[rootJointIndex].position;
+  // 2) Position the followCam behind & above the root
+  // e.g. rootPos + offset
+  // We'll clone the rootPos to avoid mutating it
+  const desiredCamPos = rootPos.clone().add(followOffset);
+  followCam.position.lerp(desiredCamPos, 0.2); 
+  // or just set() if you don't want smoothing:
+  // followCam.position.copy(desiredCamPos);
+
+  // 3) Make the followCam look at the root
+  followCam.lookAt(rootPos);
+}
+
 
 
 function animate() {
@@ -313,12 +397,12 @@ function animate() {
         frameControl.frameIndex = currentFrame;
         if (frameController) frameController.updateDisplay();
         updateSkeleton();
-        updateCameraFrustum();
-    }
+        updateFollowCamera();
+        updateEstimatedCamera();
+        }
 
     controls.update();
-    renderer.render(scene, camera);
-    // renderer.render(scene, camFrustum);
+    render();
 }
 
 function createGUI() {
@@ -345,7 +429,8 @@ function createGUI() {
 
             // Immediately show the new motion at frame 0
             updateSkeleton();
-            updateCameraFrustum();
+            updateEstimatedCamera();
+            updateFollowCamera();
             console.log(`Switched to motion index ${currentMotionIndex}`);
         });
 
@@ -366,7 +451,21 @@ function createGUI() {
       .onChange(value => {
         console.log("Animate (Autoplay) is now:", value);
         // No direct action needed here, but we’ll use `config.animate` in the animation loop
-      });
+    });
+
+    // Checkbox for EstimatedCamHelper visibility
+    gui.add(config, 'showEstimatedCamHelper')
+       .name('Estimated camera')
+       .onChange(value => {
+         estimatedCamHelper.visible = value;
+    });
+
+    // Checkbox for FollowCamHelper visibility
+    gui.add(config, 'showFollowCamHelper')
+       .name('Follow camera')
+       .onChange(value => {
+         followCamHelper.visible = value;
+    });
 }
 
 
