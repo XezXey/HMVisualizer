@@ -4,7 +4,7 @@
     "three": "^0.174.0"
   },
   "devDependencies": {
-    "vite": "^6.2.2"
+    "vite": "^6.3.5"
   },
   "name": "visualizer",
   "version": "1.0.0",
