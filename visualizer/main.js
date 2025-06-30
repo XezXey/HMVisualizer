@@ -20,7 +20,7 @@ let motionController; // We'll keep this reference to update the GUI
 let frameController;
 let shadowVisibilityController;
 const numJoints = 22;
-const framesPerMotion = 120;
+let framesPerMotion = 120; // Default value, will be updated after loading data
 const frameControl = { frameIndex: 0 };
 const JOINT_CONNECTIONS = [
 	[0, 1],
@@ -65,16 +65,16 @@ const config = {
 	tballsize_base: 0.03,
 	ballsize_base: 0.04,
 	patch_size: 1.25,
-    fps: 20,
+	fps: 20,
 	cb_size: 12,
 	animate: true,
 	showEstimatedCamHelper: false,
 	showFollowCamHelper: false,
 };
-const clock      = new THREE.Clock();
-let   frameTimer = 0;
-const fps        = config.fps || 30;    // maximum fps is 30
-const secPerFrm  = 1 / fps;  // seconds per frame
+const clock = new THREE.Clock();
+let frameTimer = 0;
+const fps = config.fps || 30; // maximum fps is 30
+const secPerFrm = 1 / fps; // seconds per frame
 
 function createIdentity4x4() {
 	return [
@@ -200,7 +200,7 @@ function init() {
 	render();
 
 	// animate();
-    requestAnimationFrame(animate);
+	requestAnimationFrame(animate);
 
 	// (Optional) Add some geometry/axes to see orientation
 	const axes = new THREE.AxesHelper(3);
@@ -299,7 +299,7 @@ async function loadMotionData() {
 		motionData = jsonData.motions;
 		textPromptData = jsonData.prompts;
 		console.log("Loaded text prompts:", textPromptData);
-		loadCameraData(jsonData);
+		// loadCameraData(jsonData);
 		console.log(`Loaded ${motionData.length} motions.`);
 		createSkeleton();
 		createGUI(); // Now that data is loaded, create the GUI
@@ -345,6 +345,11 @@ function createSkeleton() {
 
 function updateSkeleton() {
 	const currentMotion = motionData[currentMotionIndex];
+	framesPerMotion = currentMotion[0][0].length; // Update framesPerMotion
+	// console.log("Frames per motion:", framesPerMotion);
+	frameController.min(0).max(framesPerMotion - 1);
+	frameController.updateDisplay();
+
 	if (!currentMotion || !skeleton) return;
 
 	for (let i = 0; i < numJoints; i++) {
@@ -473,14 +478,14 @@ function animate() {
 		currentFrame = (currentFrame + 1) % framesPerMotion;
 		frameControl.frameIndex = currentFrame;
 		if (frameController) frameController.updateDisplay();
-        updateSkeleton();
-        updateTextPrompt();
-        updateEstimatedCamera();
-        updateFollowCamera();
+		updateSkeleton();
+		updateTextPrompt();
+		// updateEstimatedCamera();
+		updateFollowCamera();
 	}
 
 	controls.update();
-    render();
+	render();
 }
 
 function createGUI() {
@@ -509,7 +514,7 @@ function createGUI() {
 			// Immediately show the new motion at frame 0
 			updateSkeleton();
 			updateTextPrompt();
-			updateEstimatedCamera();
+			// updateEstimatedCamera();
 			updateFollowCamera();
 			console.log(`Switched to motion index ${currentMotionIndex}`);
 		});
@@ -524,8 +529,8 @@ function createGUI() {
 			console.log(`Switched to frame ${currentFrame}`);
 			updateSkeleton();
 			updateTextPrompt();
-            updateEstimatedCamera();
-            updateFollowCamera();
+			// updateEstimatedCamera();
+			updateFollowCamera();
 		});
 
 	// 3) Autoplay (Animate) Checkbox
