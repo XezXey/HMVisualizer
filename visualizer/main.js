@@ -547,9 +547,9 @@ function updateColorTracker(is_add) {
 		// Add a new entry for the new slot
 		// console.log("Adding new color entry to tracker:", defaultColor);
 		colorTracker.push({
-			jointColor: defaultColor.jointColor,
+			// jointColor: defaultColor.jointColor,
 			boneColor: defaultColor.boneColor,
-			// jointColor: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+			jointColor: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
 		});
 	} else {
 		// Remove the last entry
