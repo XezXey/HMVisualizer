@@ -9,9 +9,9 @@ import { all, color } from "three/src/nodes/TSL.js";
 let scene, camera, renderer, controls, cb;
 let allMotionData = {}; // Dict of motion storing the [B, 22, 3, 120] array
 let colorTracker = [];
+let samplesTracker = [];
 let textPromptData = []; // Will hold the text prompts
-let currentMotionIndex = 0,
-	currentFrame = 0;
+let currentFrame = 0;
 let motionControl = { motion: 0 };
 let motionController; // We'll keep this reference to update the GUI
 let frameController;
@@ -173,7 +173,6 @@ function init() {
 
 	addCheckerboard(config.patch_size, config.cb_size);
 	createGUI();
-	addKeyboardNavigation();
 
 	render();
 
@@ -199,6 +198,10 @@ async function loadMotionData(motion_file, idx) {
 		const jsonData = await response.json();
 		let jointColor = new THREE.Color(colorTracker[idx - 1].jointColor).getHex();
 		let boneColor = new THREE.Color(colorTracker[idx - 1].boneColor).getHex();
+		console.log("Samples tracker before update:", samplesTracker);
+		samplesTracker[idx - 1].end = jsonData.motions.length;
+		// update the gui controller for the current sample
+		console.log("Samples tracker after update:", samplesTracker);
 		console.log("Joint color for index", idx, ":", jointColor);
 
 		allMotionData[motion_file] = {
@@ -208,6 +211,7 @@ async function loadMotionData(motion_file, idx) {
 			bones: [],
 			jointColor: jointColor, // Default to red if not provided
 			boneColor: boneColor, //
+			vis_idx: 0,
 		};
 		let joint = allMotionData[motion_file]["joint"];
 		let bones = allMotionData[motion_file]["bones"];
@@ -278,7 +282,8 @@ function updateSkeleton(motionData) {
 	let bones = motionData.bones;
 	let jointColor = motionData.jointColor || 0xff0000;
 	let boneColor = motionData.boneColor || 0x0000ff;
-	const currentMotion = motion_list[currentMotionIndex];
+	let vis_idx = motionData.vis_idx;
+	const currentMotion = motion_list[vis_idx];
 	framesPerMotion = currentMotion[0][0].length; // Update framesPerMotion
 	// console.log("Current motion index:", currentMotionIndex);
 	// console.log("Current motion frames:", framesPerMotion);
@@ -322,16 +327,16 @@ function updateSkeleton(motionData) {
 	}
 }
 
-function updateTextPrompt() {
-	const currentTextPrompt = textPromptData[currentMotionIndex];
-	try {
-		if (currentTextPrompt.length > 0) {
-			document.getElementById("text-prompt").innerText = "Prompt: " + currentTextPrompt;
-		}
-	} catch (error) {
-		document.getElementById("text-prompt").innerText = "Prompt: -";
-	}
-}
+// function updateTextPrompt() {
+// 	const currentTextPrompt = textPromptData[currentMotionIndex];
+// 	try {
+// 		if (currentTextPrompt.length > 0) {
+// 			document.getElementById("text-prompt").innerText = "Prompt: " + currentTextPrompt;
+// 		}
+// 	} catch (error) {
+// 		document.getElementById("text-prompt").innerText = "Prompt: -";
+// 	}
+// }
 
 function animate() {
 	requestAnimationFrame(animate);
@@ -345,7 +350,7 @@ function animate() {
 		frameControl.frameIndex = currentFrame;
 		if (frameController) frameController.updateDisplay();
 		updateAllSkeleton();
-		updateTextPrompt();
+		// updateTextPrompt();
 	}
 
 	controls.update();
@@ -400,6 +405,7 @@ function createGUI() {
 
 		addSlot() {
 			updateColorTracker(true);
+			updateSamplesTracker(true);
 			this.selectors.push({ file: fileOptions[0] });
 			rebuildSlots();
 			removeAllSkeleton();
@@ -410,6 +416,7 @@ function createGUI() {
 
 		removeLastSlot() {
 			updateColorTracker(false);
+			updateSamplesTracker(false);
 			if (this.selectors.length > 0) {
 				this.selectors.pop();
 				rebuildSlots();
@@ -465,8 +472,15 @@ function createGUI() {
 				}
 			});
 
-		// (4) add color pickers
+		slotFolder
+			.add(samplesTracker[idx], "current", [...Array(samplesTracker[idx].end).keys()])
+			.name("Sample id: ")
+			.onChange((value) => {
+				samplesTracker[idx].current = value;
+				allMotionData[fileMap[sel.file]].vis_idx = value;
+			});
 
+		// (4) add color pickers
 		slotFolder
 			.addColor(colorTracker[idx], "jointColor")
 			.name("Joint Color")
@@ -501,8 +515,9 @@ function createGUI() {
 		slotsFolder = gui.addFolder("Comparisons");
 		slotsFolder.add(fileParams, "addSlot").name("Add");
 		slotsFolder.add(fileParams, "removeLastSlot").name("Remove");
-		slotsFolder.add(fileParams, "loadAll").name("Load All");
+		// slotsFolder.add(fileParams, "loadAll").name("Load All");
 		fileParams.selectors.forEach((sel, idx) => addController(slotsFolder, { visible: true }, sel, idx));
+		// Iterate through all controllers in the slots folder
 	}
 
 	// 7) Initialize GUI with one slot
@@ -511,19 +526,31 @@ function createGUI() {
 	return gui;
 }
 
+function updateSamplesTracker(is_add) {
+	if (is_add) {
+		samplesTracker.push({
+			current: 0,
+			end: 10,
+		});
+	} else {
+		samplesTracker.pop();
+	}
+}
+
 function updateColorTracker(is_add) {
 	if (is_add) {
 		// Add a new entry for the new slot
-		console.log("Adding new color entry to tracker:", defaultColor);
+		// console.log("Adding new color entry to tracker:", defaultColor);
 		colorTracker.push({
 			jointColor: defaultColor.jointColor,
 			boneColor: defaultColor.boneColor,
+			// jointColor: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
 		});
 	} else {
 		// Remove the last entry
 		colorTracker.pop();
 	}
-	console.log("Updated color tracker:", colorTracker);
+	// console.log("Updated color tracker:", colorTracker);
 }
 
 function updateColorTrackerWithParams({ idx, jointColor, boneColor }) {
@@ -545,31 +572,6 @@ function removeAllSkeleton() {
 			motionData.bones.forEach((line) => scene.remove(line));
 		}
 	}
-}
-
-function addKeyboardNavigation() {
-	document.addEventListener("keydown", (event) => {
-		if (!motionData.length) return;
-
-		if (event.key === "ArrowUp") {
-			currentMotionIndex = Math.max(0, currentMotionIndex - 1);
-		} else if (event.key === "ArrowDown") {
-			currentMotionIndex = Math.min(motionData.length - 1, currentMotionIndex + 1);
-		} else {
-			return; // Ignore other keys
-		}
-
-		// Reset frame and log
-		currentFrame = 0;
-		console.log(`Arrow key: Switched to motion index ${currentMotionIndex}`);
-
-		// 1) Update the local control object
-		motionControl.motion = currentMotionIndex;
-		// 2) Update the GUI display
-		if (motionController) {
-			motionController.updateDisplay();
-		}
-	});
 }
 
 init();
