@@ -9,7 +9,7 @@ import { all, color } from "three/src/nodes/TSL.js";
 let scene, camera, renderer, controls, cb;
 let allMotionData = {}; // Dict of motion storing the [B, 22, 3, 120] array
 let colorTracker = [];
-let samplesTracker = [];
+// let samplesTracker = [];
 let textPromptData = []; // Will hold the text prompts
 let currentFrame = 0;
 let motionControl = { motion: 0 };
@@ -198,11 +198,10 @@ async function loadMotionData(motion_file, idx) {
 		const jsonData = await response.json();
 		let jointColor = new THREE.Color(colorTracker[idx - 1].jointColor).getHex();
 		let boneColor = new THREE.Color(colorTracker[idx - 1].boneColor).getHex();
-		console.log("Samples tracker before update:", samplesTracker);
-		samplesTracker[idx - 1].end = jsonData.motions.length;
+		// console.log("Samples tracker before update:", samplesTracker);
+		// samplesTracker[idx - 1].end = jsonData.motions.length;
 		// update the gui controller for the current sample
-		console.log("Samples tracker after update:", samplesTracker);
-		console.log("Joint color for index", idx, ":", jointColor);
+		// console.log("Samples tracker after update:", samplesTracker);
 
 		allMotionData[motion_file] = {
 			motions: jsonData.motions,
@@ -405,7 +404,7 @@ function createGUI() {
 
 		addSlot() {
 			updateColorTracker(true);
-			updateSamplesTracker(true);
+			// updateSamplesTracker(true);
 			this.selectors.push({ file: fileOptions[0] });
 			rebuildSlots();
 			removeAllSkeleton();
@@ -416,7 +415,7 @@ function createGUI() {
 
 		removeLastSlot() {
 			updateColorTracker(false);
-			updateSamplesTracker(false);
+			// updateSamplesTracker(false);
 			if (this.selectors.length > 0) {
 				this.selectors.pop();
 				rebuildSlots();
@@ -472,13 +471,13 @@ function createGUI() {
 				}
 			});
 
-		slotFolder
-			.add(samplesTracker[idx], "current", [...Array(samplesTracker[idx].end).keys()])
-			.name("Sample id: ")
-			.onChange((value) => {
-				samplesTracker[idx].current = value;
-				allMotionData[fileMap[sel.file]].vis_idx = value;
-			});
+		// slotFolder
+		// 	.add(samplesTracker[idx], "current", [...Array(samplesTracker[idx].end).keys()])
+		// 	.name("Sample id: ")
+		// 	.onChange((value) => {
+		// 		samplesTracker[idx].current = value;
+		// 		allMotionData[fileMap[sel.file]].vis_idx = value;
+		// 	});
 
 		// (4) add color pickers
 		slotFolder
@@ -558,7 +557,7 @@ function updateColorTrackerWithParams({ idx, jointColor, boneColor }) {
 		jointColor: jointColor,
 		boneColor: boneColor,
 	};
-	console.log("Updated color tracker with params:", colorTracker);
+	// console.log("Updated color tracker with params:", colorTracker);
 }
 
 function removeAllSkeleton() {
