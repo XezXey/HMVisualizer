@@ -4,7 +4,7 @@ import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 // import * as dat from "dat.gui"; // Import dat.GUI
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import GUI from "lil-gui";
-import { all, color } from "three/src/nodes/TSL.js";
+import { all, color, split } from "three/src/nodes/TSL.js";
 
 let scene, camera, renderer, controls, cb;
 let allMotionData = {}; // Dict of motion storing the [B, 22, 3, 120] array
@@ -60,6 +60,7 @@ const config = {
 	cb_size: 12,
 	animate: true,
 	visible: true,
+	split: false, // New config option for split the motion data from the center
 };
 const clock = new THREE.Clock();
 let frameTimer = 0;
@@ -265,17 +266,41 @@ function createSkeleton(joint, bones, jointColor, boneColor) {
 }
 
 function updateAllSkeleton() {
+	// Access comparison slots
+	let offsetArray;
+	const num_skeleton = colorTracker.length; // Use the length of colorTracker to determine the number of skeletons
+
+	if (num_skeleton === 0) {
+		console.warn("No skeletons to update. Please add motion data first.");
+		return;
+	} else if (num_skeleton === 1) {
+		offsetArray = [0]; // Only one skeleton, no offset needed
+	} else if (num_skeleton % 2 === 0) {
+		// even: [-n/2 … -1, 1 … n/2]
+		const half = num_skeleton / 2;
+		const neg = Array.from({ length: half }, (_, i) => -(half - i));
+		const pos = Array.from({ length: half }, (_, i) => i + 1);
+		offsetArray = [...neg, ...pos];
+	} else {
+		// odd: [-floor(n/2) … 0 … +floor(n/2)]
+		const half = Math.floor(num_skeleton / 2);
+		offsetArray = Array.from({ length: 2 * half + 1 }, (_, i) => i - half);
+	}
+	// console.log("Offset array for skeletons:", offsetArray);
+
+	let count = 0;
 	for (const motionFile in allMotionData) {
 		const motionData = allMotionData[motionFile];
-		// console.log("Updating joint for motion file:", motionFile);
-		// console.log("Motion data length:", motionData.motions.length);
+		const used_offset = offsetArray[count] || 0; // Use the offset from the array or default to 0
+		const split_offset = config.split ? 1.5 : 0; // Use config.split to determine the offset
 		if (motionData.motions.length > 0) {
-			updateSkeleton(motionData);
+			updateSkeleton(motionData, used_offset * split_offset);
+			count++;
 		}
 	}
 }
 
-function updateSkeleton(motionData) {
+function updateSkeleton(motionData, offset = 0) {
 	let motion_list = motionData.motions;
 	let joint = motionData.joint;
 	let bones = motionData.bones;
@@ -295,7 +320,7 @@ function updateSkeleton(motionData) {
 	if (!currentMotion || !joint) return;
 
 	for (let i = 0; i < numJoints; i++) {
-		const x = currentMotion[i][0][currentFrame];
+		const x = currentMotion[i][0][currentFrame] + offset;
 		const y = currentMotion[i][1][currentFrame];
 		const z = currentMotion[i][2][currentFrame];
 		joint[i].position.set(x, y, z);
@@ -349,7 +374,6 @@ function animate() {
 		frameControl.frameIndex = currentFrame;
 		if (frameController) frameController.updateDisplay();
 		updateAllSkeleton();
-		// updateTextPrompt();
 	}
 
 	controls.update();
@@ -379,6 +403,7 @@ function createGUI() {
 	gui.domElement.style.pointerEvents = "auto";
 
 	gui.add(config, "animate").name("Animate");
+	gui.add(config, "split").name("Split");
 
 	frameControl.frameIndex = currentFrame;
 	frameController = gui
@@ -388,7 +413,7 @@ function createGUI() {
 			currentFrame = value;
 			console.log(`Switched to frame ${currentFrame}`);
 			updateAllSkeleton();
-			updateTextPrompt();
+			// updateTextPrompt();
 		});
 
 	// 3) Discover all motion JSON files via Vite glob
@@ -471,14 +496,6 @@ function createGUI() {
 				}
 			});
 
-		// slotFolder
-		// 	.add(samplesTracker[idx], "current", [...Array(samplesTracker[idx].end).keys()])
-		// 	.name("Sample id: ")
-		// 	.onChange((value) => {
-		// 		samplesTracker[idx].current = value;
-		// 		allMotionData[fileMap[sel.file]].vis_idx = value;
-		// 	});
-
 		// (4) add color pickers
 		slotFolder
 			.addColor(colorTracker[idx], "jointColor")
@@ -523,17 +540,6 @@ function createGUI() {
 	fileParams.addSlot();
 
 	return gui;
-}
-
-function updateSamplesTracker(is_add) {
-	if (is_add) {
-		samplesTracker.push({
-			current: 0,
-			end: 10,
-		});
-	} else {
-		samplesTracker.pop();
-	}
 }
 
 function updateColorTracker(is_add) {
