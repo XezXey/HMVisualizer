@@ -8,14 +8,13 @@ import { all, color } from "three/src/nodes/TSL.js";
 
 let scene, camera, renderer, controls, cb;
 let allMotionData = {}; // Dict of motion storing the [B, 22, 3, 120] array
-let colorTracker = {};
+let colorTracker = [];
 let textPromptData = []; // Will hold the text prompts
 let currentMotionIndex = 0,
 	currentFrame = 0;
 let motionControl = { motion: 0 };
 let motionController; // We'll keep this reference to update the GUI
 let frameController;
-let shadowVisibilityController;
 const numJoints = 22;
 let framesPerMotion = 120; // Default value, will be updated after loading data
 const frameControl = { frameIndex: 0 };
@@ -50,7 +49,7 @@ const JOINT_CONNECTIONS = [
 ];
 
 const config = {
-	dirlightRadius: 4,
+	dirlightRadius: 1.5,
 	dirlightSamples: 12,
 	shadow: true,
 	speed: 0.05,
@@ -198,14 +197,10 @@ async function loadMotionData(motion_file, idx) {
 	try {
 		const response = await fetch(motion_file);
 		const jsonData = await response.json();
-		let jointColor, boneColor;
-		if (allMotionData[motion_file]) {
-			jointColor = allMotionData[motion_file]["jointColor"] || 0xff0000;
-			boneColor = allMotionData[motion_file]["boneColor"] || 0x000ff;
-		} else {
-			jointColor = 0xff0000; // Default to red if not provided
-			boneColor = 0x0000ff; // Default to blue if not provided
-		}
+		let jointColor = new THREE.Color(colorTracker[idx - 1].jointColor).getHex();
+		let boneColor = new THREE.Color(colorTracker[idx - 1].boneColor).getHex();
+		console.log("Joint color for index", idx, ":", jointColor);
+
 		allMotionData[motion_file] = {
 			motions: jsonData.motions,
 			prompts: jsonData.prompts,
@@ -216,7 +211,7 @@ async function loadMotionData(motion_file, idx) {
 		};
 		let joint = allMotionData[motion_file]["joint"];
 		let bones = allMotionData[motion_file]["bones"];
-		[joint, bones] = createSkeleton(joint, bones);
+		[joint, bones] = createSkeleton(joint, bones, jointColor, boneColor);
 		allMotionData[motion_file]["joint"] = joint;
 		allMotionData[motion_file]["bones"] = bones;
 
@@ -229,7 +224,7 @@ async function loadMotionData(motion_file, idx) {
 	}
 }
 
-function createSkeleton(joint, bones, jointColor = 0xff0000, boneColor = 0x0000ff) {
+function createSkeleton(joint, bones, jointColor, boneColor) {
 	// Remove existing joint if it exists
 	if (joint) {
 		joint.forEach((joint) => scene.remove(joint));
@@ -238,7 +233,7 @@ function createSkeleton(joint, bones, jointColor = 0xff0000, boneColor = 0x0000f
 	if (bones) {
 		bones.forEach((line) => scene.remove(line));
 	}
-
+	console.log("Creating skeleton with joint color:", jointColor, "and bone color:", boneColor);
 	const material = new THREE.MeshBasicMaterial({ color: jointColor });
 	const sphereGeometry = new THREE.SphereGeometry(0.03);
 
@@ -259,6 +254,7 @@ function createSkeleton(joint, bones, jointColor = 0xff0000, boneColor = 0x0000f
 		geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
 		const line = new THREE.Line(geometry, lineMaterial);
+		line.castShadow = config.shadow;
 		scene.add(line);
 		bones.push(line);
 	}
@@ -403,6 +399,7 @@ function createGUI() {
 		selectors: [],
 
 		addSlot() {
+			updateColorTracker(true);
 			this.selectors.push({ file: fileOptions[0] });
 			rebuildSlots();
 			removeAllSkeleton();
@@ -412,6 +409,7 @@ function createGUI() {
 		},
 
 		removeLastSlot() {
+			updateColorTracker(false);
 			if (this.selectors.length > 0) {
 				this.selectors.pop();
 				rebuildSlots();
@@ -467,30 +465,30 @@ function createGUI() {
 				}
 			});
 
-		if (colorTracker[fileMap[sel.file]]) {
-			defaultColor.jointColor = new THREE.Color(colorTracker[fileMap[sel.file]].jointColor).getHexString();
-			defaultColor.boneColor = new THREE.Color(colorTracker[fileMap[sel.file]].boneColor).getHexString();
-		} else {
-			colorTracker[fileMap[sel.file]] = {
-				jointColor: defaultColor.jointColor,
-				boneColor: defaultColor.boneColor,
-			};
-		}
 		// (4) add color pickers
+
 		slotFolder
-			.addColor(defaultColor, "jointColor")
+			.addColor(colorTracker[idx], "jointColor")
 			.name("Joint Color")
 			.onChange((val) => {
-				allMotionData[fileMap[sel.file]].jointColor = new THREE.Color(val).getHex();
-				colorTracker[fileMap[sel.file]].jointColor = new THREE.Color(val).getHex();
+				updateColorTrackerWithParams({
+					idx: idx,
+					jointColor: val,
+					boneColor: colorTracker[idx].boneColor,
+				});
+				allMotionData[fileMap[sel.file]].jointColor = new THREE.Color(colorTracker[idx].jointColor).getHex();
 			});
 
 		slotFolder
-			.addColor(defaultColor, "boneColor")
+			.addColor(colorTracker[idx], "boneColor")
 			.name("Bone Color")
 			.onChange((val) => {
-				allMotionData[fileMap[sel.file]].boneColor = new THREE.Color(val).getHex();
-				colorTracker[fileMap[sel.file]].boneColor = new THREE.Color(val).getHex();
+				updateColorTrackerWithParams({
+					idx: idx,
+					jointColor: colorTracker[idx].jointColor,
+					boneColor: val,
+				});
+				allMotionData[fileMap[sel.file]].boneColor = new THREE.Color(colorTracker[idx].boneColor).getHex();
 			});
 
 		// Optionally, style slot folder header
@@ -511,6 +509,29 @@ function createGUI() {
 	fileParams.addSlot();
 
 	return gui;
+}
+
+function updateColorTracker(is_add) {
+	if (is_add) {
+		// Add a new entry for the new slot
+		console.log("Adding new color entry to tracker:", defaultColor);
+		colorTracker.push({
+			jointColor: defaultColor.jointColor,
+			boneColor: defaultColor.boneColor,
+		});
+	} else {
+		// Remove the last entry
+		colorTracker.pop();
+	}
+	console.log("Updated color tracker:", colorTracker);
+}
+
+function updateColorTrackerWithParams({ idx, jointColor, boneColor }) {
+	colorTracker[idx] = {
+		jointColor: jointColor,
+		boneColor: boneColor,
+	};
+	console.log("Updated color tracker with params:", colorTracker);
 }
 
 function removeAllSkeleton() {
