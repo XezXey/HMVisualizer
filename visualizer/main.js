@@ -307,8 +307,8 @@ function updateSkeleton(motionData, skeletonData, offset = 0) {
 	let bones = skeletonData.bones;
 	let jointColor = skeletonData.jointColor || 0xff0000;
 	let boneColor = skeletonData.boneColor || 0x0000ff;
-	let vis_idx = 0;
-	const currentMotion = motion_list[vis_idx];
+	let motionIndex = skeletonData.motionIndex || 0;
+	const currentMotion = motion_list[motionIndex];
 	framesPerMotion = currentMotion[0][0].length; // Update framesPerMotion
 	frameController.min(0).max(framesPerMotion - 1);
 	frameController.updateDisplay();
@@ -378,9 +378,11 @@ function addRemove_DrawnSkeleton(is_add, idx) {
 	const skeleton = {
 		joint: joint,
 		bones: bones,
-		jointColor: defaultColor.jointColor,
+		// jointColor: defaultColor.jointColor,
+		jointColor: Math.floor(Math.random() * 0xffffff),
 		boneColor: defaultColor.boneColor,
 		motionFile: Object.keys(allMotionData)[0],
+		motionIndex: 0, // Default to the first motion
 	};
 	if (is_add) {
 		allDrawnSkeleton.push(skeleton);
@@ -460,6 +462,19 @@ function createGUI() {
 				allDrawnSkeleton[idx].motionFile = value; // Update the motion file for this slot
 			});
 
+		slotFolder
+			.add(
+				allDrawnSkeleton[idx],
+				"motionIndex",
+				Array.from({ length: allMotionData[allDrawnSkeleton[idx].motionFile].n_motions }, (_, i) => i)
+			)
+			.name("Motion Index")
+			.onChange((value) => {
+				// Update the motion index for this slot
+				allDrawnSkeleton[idx].motionIndex = value;
+				// this.updateDisplay(); // Update the display to reflect the new motion index
+			});
+
 		// Visibility checkbox inside slot folder
 		slotFolder
 			.add(visible, "visible")
@@ -517,30 +532,6 @@ function createGUI() {
 	fileParams.addSlot();
 
 	return gui;
-}
-
-function updateColorTracker(is_add) {
-	if (is_add) {
-		// Add a new entry for the new slot
-		// console.log("Adding new color entry to tracker:", defaultColor);
-		colorTracker.push({
-			// jointColor: defaultColor.jointColor,
-			boneColor: defaultColor.boneColor,
-			jointColor: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
-		});
-	} else {
-		// Remove the last entry
-		colorTracker.pop();
-	}
-	// console.log("Updated color tracker:", colorTracker);
-}
-
-function updateColorTrackerWithParams({ idx, jointColor, boneColor }) {
-	colorTracker[idx] = {
-		jointColor: jointColor,
-		boneColor: boneColor,
-	};
-	// console.log("Updated color tracker with params:", colorTracker);
 }
 
 function removeAllSkeleton() {
