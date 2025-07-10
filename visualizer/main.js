@@ -56,7 +56,7 @@ const config = {
 	drawtail: 10,
 	traj_id: 0,
 	patch_size: 1.25,
-	fps: 20,
+	fps: 24,
 	cb_size: 12,
 	animate: true,
 	visible: true,
@@ -359,6 +359,9 @@ function animate() {
 		frameControl.frameIndex = currentFrame;
 		if (frameController) frameController.updateDisplay();
 		updateAllSkeleton();
+	} else if (~config.animate) {
+		// If not animating, just update the skeletons without changing the frame
+		updateAllSkeleton();
 	}
 
 	controls.update();
@@ -411,6 +414,8 @@ function createGUI() {
 	});
 	// make the GUI elements respond to pointer events
 	gui.domElement.style.pointerEvents = "auto";
+	gui.domElement.style.maxHeight = "900px"; // adjust as needed
+	gui.domElement.style.overflowY = "auto";
 
 	gui.add(config, "animate").name("Animate");
 	gui.add(config, "split").name("Split");
@@ -460,6 +465,7 @@ function createGUI() {
 			.name("Motion file")
 			.onChange((value) => {
 				allDrawnSkeleton[idx].motionFile = value; // Update the motion file for this slot
+				rebuildSlots();
 			});
 
 		slotFolder
