@@ -9,11 +9,7 @@ import { all, color, split } from "three/src/nodes/TSL.js";
 let scene, camera, renderer, controls, cb;
 let allMotionData = {}; // Dict of motion storing the [B, 22, 3, 120] array
 let allDrawnSkeleton = []; // List of all drawn motions
-let colorTracker = [];
-// let samplesTracker = [];
 let currentFrame = 0;
-let motionControl = { motion: 0 };
-let motionController; // We'll keep this reference to update the GUI
 let frameController;
 const numJoints = 22;
 let framesPerMotion = 120; // Default value, will be updated after loading data
@@ -269,7 +265,7 @@ function updateAllSkeleton() {
 	// Access comparison slots
 	let offsetArray;
 	const num_skeleton = allDrawnSkeleton.length; // Use the length of colorTracker to determine the number of skeletons
-	console.log("Number of skeletons to update:", num_skeleton);
+	// console.log("Number of skeletons to update:", num_skeleton);
 
 	if (num_skeleton === 0) {
 		console.warn("No skeletons to update. Please add motion data first.");
@@ -290,8 +286,8 @@ function updateAllSkeleton() {
 	// console.log("Offset array for skeletons:", offsetArray);
 
 	for (let i = 0; i < num_skeleton; i++) {
-		console.log("Updating skeleton at index:", i);
-		console.log("Skeleton data:", allDrawnSkeleton[i]);
+		// console.log("Updating skeleton at index:", i);
+		// console.log("Skeleton data:", allDrawnSkeleton[i]);
 		const used_offset = offsetArray[i];
 		const split_offset = config.split ? 1.5 : 0;
 		const motionKey = allDrawnSkeleton[i].motionFile;
@@ -457,7 +453,7 @@ function createGUI() {
 	function addController(rootFolder, visible, sel, idx) {
 		// Create a collapsible subfolder for each slot
 		const slotFolder = rootFolder.addFolder(`Output ${idx + 1}`);
-		console.log("KEYS: ", Object.keys(allMotionData));
+		// console.log("KEYS: ", Object.keys(allMotionData));
 
 		// File dropdown inside slot folder
 		slotFolder
