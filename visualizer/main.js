@@ -476,9 +476,7 @@ function createGUI() {
 			)
 			.name("Motion Index")
 			.onChange((value) => {
-				// Update the motion index for this slot
 				allDrawnSkeleton[idx].motionIndex = value;
-				// this.updateDisplay(); // Update the display to reflect the new motion index
 			});
 
 		// Visibility checkbox inside slot folder
@@ -486,7 +484,6 @@ function createGUI() {
 			.add(visible, "visible")
 			.name("Visibility")
 			.onChange((value) => {
-				// Toggle visibility of the joint and bones
 				const skeletonData = allDrawnSkeleton[idx];
 				if (skeletonData) {
 					skeletonData.joint.forEach((joint) => {
