@@ -20,8 +20,8 @@ let framesPerMotion = 120; // Default value, will be updated after loading data
 const frameControl = { frameIndex: 0 };
 
 const defaultColor = {
-	jointColor: "#ff0000", // initial hex string
-	boneColor: "#0000ff",
+	jointColor: 0xff0000, // initial hex string
+	boneColor: 0x0000ff,
 };
 
 const JOINT_CONNECTIONS = [
@@ -428,8 +428,8 @@ function createGUI() {
 		selectors: [],
 		addSlot() {
 			this.selectors.push({ file: Object.keys(allMotionData)[0] }); // Default to the first file
-			rebuildSlots();
 			addRemove_DrawnSkeleton(true, this.selectors.length);
+			rebuildSlots();
 		},
 
 		removeLastSlot() {
@@ -478,19 +478,27 @@ function createGUI() {
 			});
 
 		// (4) add color pickers
-		// slotFolder
-		// 	.addColor(0x000000, "jointColor")
-		// 	.name("Joint Color")
-		// 	.onChange((val) => {
-		// 		// Change color here
-		// 	});
+		slotFolder
+			.addColor(allDrawnSkeleton[idx], "jointColor")
+			.name("Joint Color")
+			.onChange((val) => {
+				// Change color here
+				const skeletonData = allDrawnSkeleton[idx];
+				if (skeletonData) {
+					skeletonData.jointColor = val; // Update the joint color for this slot
+				}
+			});
 
-		// slotFolder
-		// 	.addColor(0x000000, "boneColor")
-		// 	.name("Bone Color")
-		// 	.onChange((val) => {
-		// 		// Change color here
-		// 	});
+		slotFolder
+			.addColor(allDrawnSkeleton[idx], "boneColor")
+			.name("Bone Color")
+			.onChange((val) => {
+				// Change color here
+				const skeletonData = allDrawnSkeleton[idx];
+				if (skeletonData) {
+					skeletonData.boneColor = val; // Update the bone color for this slot
+				}
+			});
 
 		// Optionally, style slot folder header
 		slotFolder.domElement.querySelector(".name").style.fontWeight = "bold";
@@ -502,9 +510,7 @@ function createGUI() {
 		slotsFolder = gui.addFolder("Comparisons");
 		slotsFolder.add(fileParams, "addSlot").name("Add");
 		slotsFolder.add(fileParams, "removeLastSlot").name("Remove");
-		// slotsFolder.add(fileParams, "loadAll").name("Load All");
 		fileParams.selectors.forEach((sel, idx) => addController(slotsFolder, { visible: true }, sel, idx));
-		// Iterate through all controllers in the slots folder
 	}
 
 	// 7) Initialize GUI with one slot
