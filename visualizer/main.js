@@ -8,9 +8,9 @@ import { all, color, split } from "three/src/nodes/TSL.js";
 
 let scene, camera, renderer, controls, cb;
 let allMotionData = {}; // Dict of motion storing the [B, 22, 3, 120] array
+let allDrawnSkeleton = []; // List of all drawn motions
 let colorTracker = [];
 // let samplesTracker = [];
-let textPromptData = []; // Will hold the text prompts
 let currentFrame = 0;
 let motionControl = { motion: 0 };
 let motionController; // We'll keep this reference to update the GUI
@@ -147,7 +147,7 @@ function addCheckerboard(patch_size, size) {
 	scene.add(ambientLight);
 }
 
-function init() {
+async function init() {
 	scene = new THREE.Scene();
 
 	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -173,6 +173,7 @@ function init() {
 	overlay.style.zIndex = "10";
 
 	addCheckerboard(config.patch_size, config.cb_size);
+	await preLoadAllMotion();
 	createGUI();
 
 	render();
@@ -185,47 +186,46 @@ function init() {
 	scene.add(axes);
 }
 
-function render() {
-	renderer.setSize(window.innerWidth, window.innerHeight);
-	renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
-	renderer.setScissorTest(false);
-	renderer.clear();
-	renderer.render(scene, camera);
+async function preLoadAllMotion() {
+	const modules = import.meta.glob("./scripts/motions_with_trajectory_exp/*.json", { eager: true, as: "url" });
+	const fileOptions = Object.keys(modules).map((path) => path.split("/").pop());
+	const fileMap = Object.fromEntries(
+		fileOptions.map((name) => [name, modules[`./scripts/motions_with_trajectory_exp/${name}`]])
+	);
+	for (let i = 0; i < fileOptions.length; i++) {
+		const motionFile = fileMap[fileOptions[i]];
+		if (motionFile) {
+			await loadMotionData(motionFile, i + 1);
+		} else {
+			console.warn(`Motion file ${fileOptions[i]} not found.`);
+		}
+	}
+	console.log("[#] All motion files are loaded.");
+	console.log("[#] The total number of motion files loaded:", Object.keys(allMotionData));
+	console.log("[#] Motion data structure:", allMotionData);
 }
 
 async function loadMotionData(motion_file, idx) {
 	try {
 		const response = await fetch(motion_file);
 		const jsonData = await response.json();
-		let jointColor = new THREE.Color(colorTracker[idx - 1].jointColor).getHex();
-		let boneColor = new THREE.Color(colorTracker[idx - 1].boneColor).getHex();
-		// console.log("Samples tracker before update:", samplesTracker);
-		// samplesTracker[idx - 1].end = jsonData.motions.length;
-		// update the gui controller for the current sample
-		// console.log("Samples tracker after update:", samplesTracker);
 
 		allMotionData[motion_file] = {
 			motions: jsonData.motions,
 			prompts: jsonData.prompts,
-			joint: [],
-			bones: [],
-			jointColor: jointColor, // Default to red if not provided
-			boneColor: boneColor, //
-			vis_idx: 0,
+			n_motions: jsonData.motions.length,
 		};
-		let joint = allMotionData[motion_file]["joint"];
-		let bones = allMotionData[motion_file]["bones"];
-		[joint, bones] = createSkeleton(joint, bones, jointColor, boneColor);
-		allMotionData[motion_file]["joint"] = joint;
-		allMotionData[motion_file]["bones"] = bones;
-
-		console.log("All motion data loaded:", allMotionData);
-		console.log("Loaded motion data from:", motion_file);
-		console.log("Loaded text prompts:", textPromptData);
-		console.log(`Loaded ${allMotionData[motion_file]["motions"].length} motions.`);
 	} catch (error) {
 		console.error("Error loading motion data:", error);
 	}
+}
+
+function render() {
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+	renderer.setScissorTest(false);
+	renderer.clear();
+	renderer.render(scene, camera);
 }
 
 function createSkeleton(joint, bones, jointColor, boneColor) {
@@ -268,7 +268,8 @@ function createSkeleton(joint, bones, jointColor, boneColor) {
 function updateAllSkeleton() {
 	// Access comparison slots
 	let offsetArray;
-	const num_skeleton = colorTracker.length; // Use the length of colorTracker to determine the number of skeletons
+	const num_skeleton = allDrawnSkeleton.length; // Use the length of colorTracker to determine the number of skeletons
+	console.log("Number of skeletons to update:", num_skeleton);
 
 	if (num_skeleton === 0) {
 		console.warn("No skeletons to update. Please add motion data first.");
@@ -288,32 +289,27 @@ function updateAllSkeleton() {
 	}
 	// console.log("Offset array for skeletons:", offsetArray);
 
-	let count = 0;
-	for (const motionFile in allMotionData) {
-		const motionData = allMotionData[motionFile];
-		const used_offset = offsetArray[count] || 0; // Use the offset from the array or default to 0
-		const split_offset = config.split ? 1.5 : 0; // Use config.split to determine the offset
-		if (motionData.motions.length > 0) {
-			updateSkeleton(motionData, used_offset * split_offset);
-			count++;
-		}
+	for (let i = 0; i < num_skeleton; i++) {
+		console.log("Updating skeleton at index:", i);
+		console.log("Skeleton data:", allDrawnSkeleton[i]);
+		const used_offset = offsetArray[i];
+		const split_offset = config.split ? 1.5 : 0;
+		const motionKey = allDrawnSkeleton[i].motionFile;
+		const motionData = allMotionData[motionKey]; // Get the motion data for the current skeleton
+		const skeletonData = allDrawnSkeleton[i]; // Get the skeleton data for the current skeleton
+		updateSkeleton(motionData, skeletonData, used_offset * split_offset);
 	}
 }
 
-function updateSkeleton(motionData, offset = 0) {
+function updateSkeleton(motionData, skeletonData, offset = 0) {
 	let motion_list = motionData.motions;
-	let joint = motionData.joint;
-	let bones = motionData.bones;
-	let jointColor = motionData.jointColor || 0xff0000;
-	let boneColor = motionData.boneColor || 0x0000ff;
-	let vis_idx = motionData.vis_idx;
+	let joint = skeletonData.joint;
+	let bones = skeletonData.bones;
+	let jointColor = skeletonData.jointColor || 0xff0000;
+	let boneColor = skeletonData.boneColor || 0x0000ff;
+	let vis_idx = 0;
 	const currentMotion = motion_list[vis_idx];
 	framesPerMotion = currentMotion[0][0].length; // Update framesPerMotion
-	// console.log("Current motion index:", currentMotionIndex);
-	// console.log("Current motion frames:", framesPerMotion);
-	// console.log("Skeleton: ", joint);
-	// console.log("Bones: ", bones);
-	// console.log("Frames per motion:", framesPerMotion);
 	frameController.min(0).max(framesPerMotion - 1);
 	frameController.updateDisplay();
 
@@ -351,17 +347,6 @@ function updateSkeleton(motionData, offset = 0) {
 	}
 }
 
-// function updateTextPrompt() {
-// 	const currentTextPrompt = textPromptData[currentMotionIndex];
-// 	try {
-// 		if (currentTextPrompt.length > 0) {
-// 			document.getElementById("text-prompt").innerText = "Prompt: " + currentTextPrompt;
-// 		}
-// 	} catch (error) {
-// 		document.getElementById("text-prompt").innerText = "Prompt: -";
-// 	}
-// }
-
 function animate() {
 	requestAnimationFrame(animate);
 
@@ -380,7 +365,30 @@ function animate() {
 	render();
 }
 
-// export function createNewGUI(loadMotionJSON) {
+function addRemove_DrawnSkeleton(is_add, idx) {
+	console.log("Adding/removing skeleton at index:", idx, "is_add:", is_add);
+	// Create a new skeleton or update the existing one
+	// let jointColor = new THREE.Color(colorTracker[idx - 1].jointColor).getHex() || defaultColor.jointColor;
+	// let boneColor = new THREE.Color(colorTracker[idx - 1].boneColor).getHex() || defaultColor.boneColor;
+	let jointColor = defaultColor.jointColor;
+	let boneColor = defaultColor.boneColor;
+	let joint = [];
+	let bones = [];
+	[joint, bones] = createSkeleton(joint, bones, jointColor, boneColor);
+	const skeleton = {
+		joint: joint,
+		bones: bones,
+		jointColor: defaultColor.jointColor,
+		boneColor: defaultColor.boneColor,
+		motionFile: Object.keys(allMotionData)[0],
+	};
+	if (is_add) {
+		allDrawnSkeleton.push(skeleton);
+	} else {
+		allDrawnSkeleton.pop();
+	}
+}
+
 function createGUI() {
 	console.log("Creating new GUI...");
 	const container = document.createElement("div");
@@ -413,49 +421,28 @@ function createGUI() {
 			currentFrame = value;
 			console.log(`Switched to frame ${currentFrame}`);
 			updateAllSkeleton();
-			// updateTextPrompt();
 		});
-
-	// 3) Discover all motion JSON files via Vite glob
-	const modules = import.meta.glob("./scripts/motions_with_trajectory_exp/*.json", { eager: true, as: "url" });
-	const fileOptions = Object.keys(modules).map((path) => path.split("/").pop());
-	const fileMap = Object.fromEntries(
-		fileOptions.map((name) => [name, modules[`./scripts/motions_with_trajectory_exp/${name}`]])
-	);
 
 	// 4) Slot management state and methods
 	const fileParams = {
 		selectors: [],
-
 		addSlot() {
-			updateColorTracker(true);
-			// updateSamplesTracker(true);
-			this.selectors.push({ file: fileOptions[0] });
+			this.selectors.push({ file: Object.keys(allMotionData)[0] }); // Default to the first file
 			rebuildSlots();
-			removeAllSkeleton();
-			this.selectors.forEach((sel, idx) => {
-				loadMotionData(fileMap[sel.file], idx + 1);
-			});
+			addRemove_DrawnSkeleton(true, this.selectors.length);
 		},
 
 		removeLastSlot() {
-			updateColorTracker(false);
-			// updateSamplesTracker(false);
 			if (this.selectors.length > 0) {
 				this.selectors.pop();
 				rebuildSlots();
 			}
-			removeAllSkeleton();
-			this.selectors.forEach((sel, idx) => {
-				loadMotionData(fileMap[sel.file], idx + 1);
-			});
+			removeSkeleton(this.selectors.length); // Remove the last skeleton
+			addRemove_DrawnSkeleton(false, this.selectors.length);
 		},
 
 		loadAll() {
 			removeAllSkeleton();
-			this.selectors.forEach((sel, idx) => {
-				loadMotionData(fileMap[sel.file], idx + 1);
-			});
 		},
 	};
 
@@ -463,20 +450,14 @@ function createGUI() {
 	function addController(rootFolder, visible, sel, idx) {
 		// Create a collapsible subfolder for each slot
 		const slotFolder = rootFolder.addFolder(`Output ${idx + 1}`);
+		console.log("KEYS: ", Object.keys(allMotionData));
 
 		// File dropdown inside slot folder
 		slotFolder
-			.add(sel, "file", fileOptions)
+			.add(sel, "file", Object.keys(allMotionData))
 			.name("Motion file")
 			.onChange((value) => {
-				removeAllSkeleton();
-				// Reload all the motions data for all slots
-				fileParams.selectors.forEach((s, i) => {
-					if (i === idx) {
-						s.file = value; // Update the selected file for this slot
-					}
-					loadMotionData(fileMap[s.file], i + 1);
-				});
+				allDrawnSkeleton[idx].motionFile = value; // Update the motion file for this slot
 			});
 
 		// Visibility checkbox inside slot folder
@@ -485,41 +466,31 @@ function createGUI() {
 			.name("Visibility")
 			.onChange((value) => {
 				// Toggle visibility of the joint and bones
-				const motionData = allMotionData[fileMap[sel.file]];
-				if (motionData) {
-					motionData.joint.forEach((joint) => {
+				const skeletonData = allDrawnSkeleton[idx];
+				if (skeletonData) {
+					skeletonData.joint.forEach((joint) => {
 						joint.visible = value;
 					});
-					motionData.bones.forEach((line) => {
+					skeletonData.bones.forEach((line) => {
 						line.visible = value;
 					});
 				}
 			});
 
 		// (4) add color pickers
-		slotFolder
-			.addColor(colorTracker[idx], "jointColor")
-			.name("Joint Color")
-			.onChange((val) => {
-				updateColorTrackerWithParams({
-					idx: idx,
-					jointColor: val,
-					boneColor: colorTracker[idx].boneColor,
-				});
-				allMotionData[fileMap[sel.file]].jointColor = new THREE.Color(colorTracker[idx].jointColor).getHex();
-			});
+		// slotFolder
+		// 	.addColor(0x000000, "jointColor")
+		// 	.name("Joint Color")
+		// 	.onChange((val) => {
+		// 		// Change color here
+		// 	});
 
-		slotFolder
-			.addColor(colorTracker[idx], "boneColor")
-			.name("Bone Color")
-			.onChange((val) => {
-				updateColorTrackerWithParams({
-					idx: idx,
-					jointColor: colorTracker[idx].jointColor,
-					boneColor: val,
-				});
-				allMotionData[fileMap[sel.file]].boneColor = new THREE.Color(colorTracker[idx].boneColor).getHex();
-			});
+		// slotFolder
+		// 	.addColor(0x000000, "boneColor")
+		// 	.name("Bone Color")
+		// 	.onChange((val) => {
+		// 		// Change color here
+		// 	});
 
 		// Optionally, style slot folder header
 		slotFolder.domElement.querySelector(".name").style.fontWeight = "bold";
@@ -568,14 +539,18 @@ function updateColorTrackerWithParams({ idx, jointColor, boneColor }) {
 
 function removeAllSkeleton() {
 	// Remove all joints from the scene
-	for (const motionFile in allMotionData) {
-		const motionData = allMotionData[motionFile];
-		if (motionData.joint) {
-			motionData.joint.forEach((joint) => scene.remove(joint));
-		}
-		if (motionData.bones) {
-			motionData.bones.forEach((line) => scene.remove(line));
-		}
+	for (let i = 0; i < allDrawnSkeleton.length; i++) {
+		removeSkeleton(i);
+	}
+	allDrawnSkeleton = []; // Clear the list of drawn skeletons
+}
+
+function removeSkeleton(i) {
+	if (allDrawnSkeleton[i].joint) {
+		allDrawnSkeleton[i].joint.forEach((joint) => scene.remove(joint));
+	}
+	if (allDrawnSkeleton[i].bones) {
+		allDrawnSkeleton[i].bones.forEach((line) => scene.remove(line));
 	}
 }
 
