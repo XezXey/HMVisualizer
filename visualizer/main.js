@@ -14,6 +14,7 @@ let frameController;
 const numJoints = 22;
 let framesPerMotion = 120; // Default value, will be updated after loading data
 const frameControl = { frameIndex: 0 };
+let cmpList = []; // List of motion files for comparison
 
 const defaultColor = {
 	jointColor: 0xff0000, // initial hex string
@@ -176,6 +177,7 @@ async function init() {
 
 	addCheckerboard(config.patch_size, config.cb_size);
 	await preLoadAllMotion();
+	await getCompare();
 	createGUI();
 
 	render();
@@ -185,6 +187,21 @@ async function init() {
 	// (Optional) Add some geometry/axes to see orientation
 	const axes = new THREE.AxesHelper(3);
 	scene.add(axes);
+}
+
+async function getCompare() {
+	const params = new URLSearchParams(window.location.search);
+	const candidates = params.get("compare");
+	if (candidates) {
+		console.log("Querying preset motion candidates:", candidates);
+		// read json
+		const response = await fetch(`${candidates}`);
+		const jsonData = await response.json();
+		cmpList = Object.values(jsonData).map((entry) => entry.file);
+		console.log("Motion file list from query:", cmpList);
+	} else {
+		console.warn("No candidates specified in the URL.");
+	}
 }
 
 async function preLoadAllMotion() {
@@ -412,7 +429,7 @@ function animate() {
 // 	render();
 // }
 
-function addRemove_DrawnSkeleton(is_add, idx) {
+function addRemove_DrawnSkeleton(is_add, idx, fn) {
 	console.log("Adding/removing skeleton at index:", idx, "is_add:", is_add);
 	// Create a new skeleton or update the existing one
 	// let jointColor = new THREE.Color(colorTracker[idx - 1].jointColor).getHex() || defaultColor.jointColor;
@@ -428,7 +445,7 @@ function addRemove_DrawnSkeleton(is_add, idx) {
 		// jointColor: defaultColor.jointColor,
 		jointColor: Math.floor(Math.random() * 0xffffff),
 		boneColor: defaultColor.boneColor,
-		motionFile: Object.keys(allMotionData)[0],
+		motionFile: fn || Object.keys(allMotionData)[0],
 		motionIndex: 0, // Default to the first motion
 	};
 	if (is_add) {
@@ -483,9 +500,14 @@ function createGUI() {
 	// 4) Slot management state and methods
 	const fileParams = {
 		selectors: [],
-		addSlot() {
-			this.selectors.push({ file: Object.keys(allMotionData)[0] }); // Default to the first file
-			addRemove_DrawnSkeleton(true, this.selectors.length);
+		addSlot(fn) {
+			if (fn && fn in allMotionData) {
+				console.log("Adding new slot with ", fn);
+				this.selectors.push({ file: fn }); // Default to the first file
+			} else {
+				this.selectors.push({ file: Object.keys(allMotionData)[0] }); // Default to the first file
+			}
+			addRemove_DrawnSkeleton(true, this.selectors.length, fn);
 			rebuildSlots();
 		},
 
@@ -585,7 +607,13 @@ function createGUI() {
 	}
 
 	// 7) Initialize GUI with one slot
-	fileParams.addSlot();
+	if (cmpList.length > 0) {
+		for (let i = 0; i < cmpList.length; i++) {
+			fileParams.addSlot(cmpList[i]);
+		}
+	} else {
+		fileParams.addSlot(null);
+	}
 
 	return gui;
 }
