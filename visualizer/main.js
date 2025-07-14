@@ -50,7 +50,6 @@ let config = {
 	shadow: true,
 	speed: 0.05,
 	drawtail: 10,
-	motion_id: 0,
 	patch_size: 1.25,
 	fps: 24,
 	cb_size: 12,
@@ -58,7 +57,8 @@ let config = {
 	visible: true,
 	split: false, // New config option for split the motion data from the center
 	root_dir: "./motions/",
-	revoke_same_id: false, // New config option to revoke all skeletons to show the same motion id
+	// motion_id: 0,
+	// revoke_same_id: false, // New config option to revoke all skeletons to show the same motion id
 };
 
 let timestep = 1 / config.fps; // fixed time step = 60 FPS
@@ -470,28 +470,28 @@ function createGUI() {
 			// config.fps = value;
 		});
 
-	function applyMotionIdToAllSkeletons(motionId) {
-		allDrawnSkeleton.forEach((skeleton) => {
-			skeleton.motionIndex = motionId;
-		});
-		rebuildSlots();
-		updateAllSkeleton();
-	}
+	// function applyMotionIdToAllSkeletons(motionId) {
+	// 	allDrawnSkeleton.forEach((skeleton) => {
+	// 		skeleton.motionIndex = motionId;
+	// 	});
+	// 	rebuildSlots();
+	// 	updateAllSkeleton();
+	// }
 
-	gui.add(config, "revoke_same_id").onChange((value) => {
-		if (value) {
-			applyMotionIdToAllSkeletons(config.motion_id);
-		}
-	});
+	// gui.add(config, "revoke_same_id").onChange((value) => {
+	// 	if (value) {
+	// 		applyMotionIdToAllSkeletons(config.motion_id);
+	// 	}
+	// });
 
-	gui.add(config, "motion_id")
-		.name("Motion ID")
-		.onChange((value) => {
-			console.log(`Motion ID changed to: ${value}`);
-			if (config.revoke_same_id) {
-				applyMotionIdToAllSkeletons(value);
-			}
-		});
+	// gui.add(config, "motion_id")
+	// 	.name("Motion ID")
+	// 	.onChange((value) => {
+	// 		console.log(`Motion ID changed to: ${value}`);
+	// 		if (config.revoke_same_id) {
+	// 			applyMotionIdToAllSkeletons(value);
+	// 		}
+	// 	});
 
 	frameControl.frameIndex = currentFrame;
 	frameController = gui
