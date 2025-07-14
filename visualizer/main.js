@@ -44,19 +44,21 @@ const JOINT_CONNECTIONS = [
 	[19, 21], // Right arm
 ];
 
-const config = {
+let config = {
 	dirlightRadius: 1.5,
 	dirlightSamples: 12,
 	shadow: true,
 	speed: 0.05,
 	drawtail: 10,
-	traj_id: 0,
+	motion_id: 0,
 	patch_size: 1.25,
 	fps: 24,
 	cb_size: 12,
 	animate: true,
 	visible: true,
 	split: false, // New config option for split the motion data from the center
+	root_dir: "./motions/",
+	revoke_same_id: false, // New config option to revoke all skeletons to show the same motion id
 };
 
 let timestep = 1 / config.fps; // fixed time step = 60 FPS
@@ -75,8 +77,10 @@ function addCheckerboard(patch_size, size) {
 	ctx.canvas.width = 2;
 	ctx.canvas.height = 2;
 	ctx.fillStyle = "#a6a6a6";
+	// ctx.fillStyle = "#000000";
 	ctx.fillRect(0, 0, 2, 2);
 	ctx.fillStyle = "#6c6c6c";
+	// ctx.fillStyle = "#000000";
 	ctx.fillRect(0, 1, 1, 1);
 	const texture = new THREE.CanvasTexture(ctx.canvas);
 	texture.magFilter = THREE.NearestFilter;
@@ -153,6 +157,7 @@ async function init() {
 	renderer = new THREE.WebGLRenderer({ antialias: true });
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	renderer.setClearColor(0xc0c0c0);
+	// renderer.setClearColor(0x000000);
 	renderer.shadowMap.enabled = config.shadow;
 	renderer.shadowMap.type = THREE.VSMShadowMap;
 	document.body.appendChild(renderer.domElement);
@@ -183,11 +188,15 @@ async function init() {
 }
 
 async function preLoadAllMotion() {
-	const modules = import.meta.glob("./scripts/motions_with_trajectory_exp/*.json", { eager: true, as: "url" });
-	const fileOptions = Object.keys(modules).map((path) => path.split("/").pop());
-	const fileMap = Object.fromEntries(
-		fileOptions.map((name) => [name, modules[`./scripts/motions_with_trajectory_exp/${name}`]])
-	);
+	const modules = import.meta.glob("./motions/**/*.json", { eager: true, as: "url" });
+	console.log("[#] All motion files are loaded:", modules);
+	const fileOptions = Object.keys(modules).map((path) => path.replace("./motions/", ""));
+	const fileMap = Object.fromEntries(fileOptions.map((name) => [name, modules[`./motions/${name}`]]));
+
+	// const fileOptions = Object.keys(modules).map((path) => path.split("/").pop());
+	console.log("[#] Motion file options:", fileOptions);
+	// const fileMap = Object.fromEntries(fileOptions.map((name) => [name, modules[`${config.root_dir}/${name}`]]));
+	console.log("[#] File map created:", fileMap);
 	for (let i = 0; i < fileOptions.length; i++) {
 		const motionFile = fileMap[fileOptions[i]];
 		if (motionFile) {
@@ -459,6 +468,29 @@ function createGUI() {
 		.onChange((value) => {
 			timestep = 1 / value; // Update timestep based on new FPS
 			// config.fps = value;
+		});
+
+	function applyMotionIdToAllSkeletons(motionId) {
+		allDrawnSkeleton.forEach((skeleton) => {
+			skeleton.motionIndex = motionId;
+		});
+		rebuildSlots();
+		updateAllSkeleton();
+	}
+
+	gui.add(config, "revoke_same_id").onChange((value) => {
+		if (value) {
+			applyMotionIdToAllSkeletons(config.motion_id);
+		}
+	});
+
+	gui.add(config, "motion_id")
+		.name("Motion ID")
+		.onChange((value) => {
+			console.log(`Motion ID changed to: ${value}`);
+			if (config.revoke_same_id) {
+				applyMotionIdToAllSkeletons(value);
+			}
 		});
 
 	frameControl.frameIndex = currentFrame;
