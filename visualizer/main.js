@@ -58,10 +58,11 @@ const config = {
 	visible: true,
 	split: false, // New config option for split the motion data from the center
 };
-const clock = new THREE.Clock();
-let frameTimer = 0;
-const fps = config.fps || 30; // maximum fps is 30
-const secPerFrm = 1 / fps; // seconds per frame
+
+let timestep = 1 / config.fps; // fixed time step = 60 FPS
+let accumulator = 0;
+let currentTime = performance.now() / 1000; // seconds
+let wasAnimating = false;
 
 function addCheckerboard(patch_size, size) {
 	let rep = Math.ceil(size / patch_size);
@@ -164,9 +165,9 @@ async function init() {
 	canvas.style.position = "absolute";
 	canvas.style.zIndex = "1";
 
-	const overlay = document.getElementById("text-prompt");
-	overlay.style.pointerEvents = "none"; // Disable pointer events
-	overlay.style.zIndex = "10";
+	// const overlay = document.getElementById("text-prompt");
+	// overlay.style.pointerEvents = "none"; // Disable pointer events
+	// overlay.style.zIndex = "10";
 
 	addCheckerboard(config.patch_size, config.cb_size);
 	await preLoadAllMotion();
@@ -174,7 +175,6 @@ async function init() {
 
 	render();
 
-	// animate();
 	requestAnimationFrame(animate);
 
 	// (Optional) Add some geometry/axes to see orientation
@@ -346,23 +346,62 @@ function updateSkeleton(motionData, skeletonData, offset = 0) {
 function animate() {
 	requestAnimationFrame(animate);
 
-	const delta = clock.getDelta(); // seconds since last call
-	frameTimer += delta;
+	const newTime = performance.now() / 1000;
+	let frameTime = newTime - currentTime;
 
-	if (config.animate && frameTimer >= secPerFrm) {
-		frameTimer -= secPerFrm;
-		currentFrame = (currentFrame + 1) % framesPerMotion;
-		frameControl.frameIndex = currentFrame;
-		if (frameController) frameController.updateDisplay();
-		updateAllSkeleton();
-	} else if (~config.animate) {
-		// If not animating, just update the skeletons without changing the frame
-		updateAllSkeleton();
+	// Clamp to prevent large delta after tab switch or lag
+	frameTime = Math.min(frameTime, 0.1);
+	currentTime = newTime;
+
+	if (config.animate) {
+		// Reset accumulator when resuming animation to avoid jumping
+		if (!wasAnimating) {
+			accumulator = 0;
+			wasAnimating = true;
+			return;
+		}
+
+		accumulator += frameTime;
+
+		while (accumulator >= timestep) {
+			currentFrame = (currentFrame + 1) % framesPerMotion;
+			frameControl.frameIndex = currentFrame;
+			if (frameController) frameController.updateDisplay();
+			updateAllSkeleton();
+			accumulator -= timestep;
+		}
+	} else {
+		wasAnimating = false;
+		updateAllSkeleton(); // Update skeletons without animation
 	}
 
 	controls.update();
 	render();
 }
+
+// function animate() {
+// 	requestAnimationFrame(animate);
+// 	const newTime = performance.now() / 1000; // seconds
+// 	let frameTime = newTime - currentTime;
+
+// 	// Clamp to avoid spiral of death after tab switch
+// 	frameTime = Math.min(frameTime, 0.1);
+
+// 	currentTime = newTime;
+// 	accumulator += frameTime;
+
+// 	while (accumulator >= timestep) {
+// 		// Fixed update logic
+// 		currentFrame = (currentFrame + 1) % framesPerMotion;
+// 		frameControl.frameIndex = currentFrame;
+// 		if (frameController) frameController.updateDisplay();
+// 		updateAllSkeleton();
+// 		accumulator -= timestep;
+// 	}
+
+// 	controls.update();
+// 	render();
+// }
 
 function addRemove_DrawnSkeleton(is_add, idx) {
 	console.log("Adding/removing skeleton at index:", idx, "is_add:", is_add);
@@ -415,6 +454,12 @@ function createGUI() {
 
 	gui.add(config, "animate").name("Animate");
 	gui.add(config, "split").name("Split");
+	gui.add(config, "fps", 1, 60, 1)
+		.name("FPS")
+		.onChange((value) => {
+			timestep = 1 / value; // Update timestep based on new FPS
+			// config.fps = value;
+		});
 
 	frameControl.frameIndex = currentFrame;
 	frameController = gui
