@@ -470,29 +470,6 @@ function createGUI() {
 			// config.fps = value;
 		});
 
-	// function applyMotionIdToAllSkeletons(motionId) {
-	// 	allDrawnSkeleton.forEach((skeleton) => {
-	// 		skeleton.motionIndex = motionId;
-	// 	});
-	// 	rebuildSlots();
-	// 	updateAllSkeleton();
-	// }
-
-	// gui.add(config, "revoke_same_id").onChange((value) => {
-	// 	if (value) {
-	// 		applyMotionIdToAllSkeletons(config.motion_id);
-	// 	}
-	// });
-
-	// gui.add(config, "motion_id")
-	// 	.name("Motion ID")
-	// 	.onChange((value) => {
-	// 		console.log(`Motion ID changed to: ${value}`);
-	// 		if (config.revoke_same_id) {
-	// 			applyMotionIdToAllSkeletons(value);
-	// 		}
-	// 	});
-
 	frameControl.frameIndex = currentFrame;
 	frameController = gui
 		.add(frameControl, "frameIndex", 0, framesPerMotion - 1, 1)
@@ -538,6 +515,9 @@ function createGUI() {
 			.name("Motion file")
 			.onChange((value) => {
 				allDrawnSkeleton[idx].motionFile = value; // Update the motion file for this slot
+				if (allDrawnSkeleton[idx].motionIndex >= allMotionData[value].n_motions) {
+					allDrawnSkeleton[idx].motionIndex = 0; // Reset to first motion if index is out of bounds
+				}
 				rebuildSlots();
 			});
 
