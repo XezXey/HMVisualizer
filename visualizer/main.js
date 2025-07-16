@@ -2,7 +2,7 @@ import * as THREE from "./node_modules/three";
 import { OrbitControls } from "./node_modules/three/examples/jsm/controls/OrbitControls.js";
 import { Reflector } from "./node_modules/three/examples/jsm/objects/Reflector.js";
 import { GLTFLoader } from "./node_modules/three/examples/jsm/loaders/GLTFLoader.js";
-import GUI from "lil-gui";
+import GUI from "./node_modules/lil-gui";
 import { all, color, split } from "./node_modules/three/src/nodes/TSL.js";
 
 let scene, camera, renderer, controls, cb;
