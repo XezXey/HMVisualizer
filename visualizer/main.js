@@ -58,6 +58,7 @@ let config = {
 	visible: true,
 	split: false, // New config option for split the motion data from the center
 	root_dir: "./motions/",
+	visall: true,
 	// motion_id: 0,
 	// revoke_same_id: false, // New config option to revoke all skeletons to show the same motion id
 };
@@ -480,6 +481,42 @@ function createGUI() {
 
 	gui.add(config, "animate").name("Animate");
 	gui.add(config, "split").name("Split");
+	gui.add(config, "visall")
+		.name("Visualize All")
+		.onChange((value) => {
+			if (value) {
+				allDrawnSkeleton.forEach((skeleton) => {
+					skeleton.joint.forEach((joint) => {
+						joint.visible = true;
+					});
+					skeleton.bones.forEach((line) => {
+						line.visible = true;
+					});
+				});
+			} else {
+				allDrawnSkeleton.forEach((skeleton) => {
+					skeleton.joint.forEach((joint) => {
+						joint.visible = false;
+					});
+					skeleton.bones.forEach((line) => {
+						line.visible = false;
+					});
+				});
+			}
+			// Change visibility of each fileParams
+			if (slotsFolder) {
+				slotsFolder.children.forEach((child) => {
+					if (child instanceof GUI) {
+						child.children.forEach((subChild) => {
+							if (subChild.property === "visible") {
+								subChild.setValue(value);
+							}
+						});
+					}
+				});
+			}
+		});
+
 	gui.add(config, "fps", 1, 60, 1)
 		.name("FPS")
 		.onChange((value) => {

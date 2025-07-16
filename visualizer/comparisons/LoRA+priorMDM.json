@@ -1,0 +1,20 @@
+{
+    "0": {
+        "file": "/motions/baselines/LoRA+PriorMDM/default/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=No_MDM=model000500000_Suffix=.json"
+    },
+    "1": {
+        "file": "/motions/baselines/LoRA+PriorMDM/default/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000020000_MDM=model000500000_Suffix=.json"
+    },
+    "2": {
+        "file": "/motions/baselines/LoRA+PriorMDM/default/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000040000_MDM=model000500000_Suffix=.json"
+    },
+    "3": {
+        "file": "/motions/baselines/LoRA+PriorMDM/default/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=.json"
+    },
+    "4": {
+        "file": "/motions/baselines/LoRA+PriorMDM/default/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000080000_MDM=model000500000_Suffix=.json"
+    },
+    "gt": {
+        "file": "/motions/training_samples/demo_cr7_2.json"
+    }
+}
