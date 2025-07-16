@@ -1,10 +1,9 @@
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Reflector } from "three/examples/jsm/objects/Reflector.js";
-// import * as dat from "dat.gui"; // Import dat.GUI
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import * as THREE from "./node_modules/three";
+import { OrbitControls } from "./node_modules/three/examples/jsm/controls/OrbitControls.js";
+import { Reflector } from "./node_modules/three/examples/jsm/objects/Reflector.js";
+import { GLTFLoader } from "./node_modules/three/examples/jsm/loaders/GLTFLoader.js";
 import GUI from "lil-gui";
-import { all, color, split } from "three/src/nodes/TSL.js";
+import { all, color, split } from "./node_modules/three/src/nodes/TSL.js";
 
 let scene, camera, renderer, controls, cb;
 let allMotionData = {}; // Dict of motion storing the [B, 22, 3, 120] array
