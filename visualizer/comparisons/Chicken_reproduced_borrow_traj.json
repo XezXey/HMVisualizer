@@ -1,0 +1,14 @@
+{
+    "0": {
+        "file": "/visualizer/motions/reproduced/Chicken_LoRA=model000004000_MDM=model000500000_Suffix=No.json"
+    },
+    "1": {
+        "file": "/visualizer/motions/reproduced_with_PriorMDM/Chicken_root_horizontal_LoRA=model000004001_MDM=model000500000_Suffix=root_horizontal_borrow_traj.json"
+    },
+    "2": {
+        "file": "/visualizer/motions/reproduced_with_PriorMDM/Chicken_root_LoRA=model000004001_MDM=model000500000_Suffix=root_borrow_traj.json"
+    },
+    "3": {
+        "file": "/visualizer/motions/reproduced_with_PriorMDM/Chicken_root_traj_LoRA=model000004001_MDM=model000500000_Suffix=root_traj_borrow_traj.json"
+    }
+}

@@ -1,0 +1,29 @@
+{
+    "1": {
+        "file": "/motions/reproduced/Chicken_LoRA=model000004000_MDM=model000500000_Suffix=No.json"
+    },
+    "2": {
+        "file": "/motions/reproduced/Chicken_LoRA=model000004000_MDM=model000500000_Suffix=root_horizontal_hardcoded_back.json"
+    },
+    "3": {
+        "file": "/motions/reproduced/Chicken_LoRA=model000004000_MDM=model000500000_Suffix=root_horizontal_hardcoded_front.json"
+    },
+    "4": {
+        "file": "/motions/reproduced/Chicken_LoRA=model000004000_MDM=model000500000_Suffix=root_horizontal_hardcoded_right_front.json"
+    },
+    "5": {
+        "file": "/motions/reproduced/Chicken_LoRA=model000004000_MDM=model000500000_Suffix=root_horizontal_hardcoded_left_front.json"
+    },
+    "6": {
+        "file": "/motions/reproduced/Chicken_LoRA=model000004000_MDM=model000500000_Suffix=root_horizontal_hardcoded_right_back.json"
+    },
+    "7": {
+        "file": "/motions/reproduced/Chicken_LoRA=model000004000_MDM=model000500000_Suffix=root_horizontal_hardcoded_left_back.json"
+    },
+    "8": {
+        "file": "/motions/reproduced/Chicken_LoRA=model000004000_MDM=model000500000_Suffix=root_horizontal_hardcoded_right.json"
+    },
+    "9": {
+        "file": "/motions/reproduced/Chicken_LoRA=model000004000_MDM=model000500000_Suffix=root_horizontal_hardcoded_left.json"
+    }
+}

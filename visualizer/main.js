@@ -5,6 +5,13 @@ import { GLTFLoader } from "./node_modules/three/examples/jsm/loaders/GLTFLoader
 import GUI from "./node_modules/lil-gui";
 import { all, color, split } from "./node_modules/three/src/nodes/TSL.js";
 
+// import * as THREE from "three";
+// import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+// import { Reflector } from "three/examples/jsm/objects/Reflector.js";
+// import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+// import GUI from "lil-gui";
+// import { all, color, split } from "three/src/nodes/TSL.js";
+
 let scene, camera, renderer, controls, cb;
 let allMotionData = {}; // Dict of motion storing the [B, 22, 3, 120] array
 let allDrawnSkeleton = []; // List of all drawn motions
@@ -17,7 +24,18 @@ let cmpList = []; // List of motion files for comparison
 
 const defaultColor = {
 	jointColor: 0xff0000, // initial hex string
-	boneColor: 0x0000ff,
+	// boneColor: 0x0000ff,
+	boneColor: 0xffffff,
+	jointColorList: [
+		0xff0000, // Red
+		0xffa500, // Orange
+		0xffff00, // Yellow
+		0x008000, // Green
+		0x0000ff, // Blue
+		// 0x4b0082, // Indigo
+		0x9400d3, // Violet
+		0x00ffff, // Cyan
+	],
 };
 
 const JOINT_CONNECTIONS = [
@@ -191,20 +209,38 @@ async function init() {
 
 async function getCompare() {
 	const params = new URLSearchParams(window.location.search);
-	const candidates = params.get("compare");
-	if (candidates) {
-		console.log("Querying preset motion candidates:", candidates);
-		// read json
-		const response = await fetch(`${candidates}`);
+	const candidatesUrl = params.get("compare");
+
+	if (!candidatesUrl) {
+		console.warn("No 'compare' parameter found in the URL.");
+		return;
+	}
+
+	try {
+		console.log("Fetching motion candidate list from:", candidatesUrl);
+
+		const response = await fetch(candidatesUrl);
+		if (!response.ok) {
+			throw new Error(`HTTP error! Status: ${response.status}`);
+		}
+
 		const jsonData = await response.json();
 		cmpList = Object.values(jsonData).map((entry) => entry.file);
-		console.log("Motion file list from query:", cmpList);
-	} else {
-		console.warn("No candidates specified in the URL.");
+		// Check all need to be exist in allMotionData
+		cmpList = cmpList.filter((file) => file in allMotionData);
+
+		console.log("Motion file list extracted from query:", cmpList);
+		// If cmpList needs to be used outside, consider returning it or assigning it globally.
+	} catch (error) {
+		console.error("Failed to fetch or parse motion candidate list:", error);
 	}
 }
 
 async function preLoadAllMotion() {
+	const progresBar = document.getElementById("motionProgress");
+	const progressText = document.getElementById("progressText");
+	const progressDiv = document.getElementById("progresDiv");
+
 	const modules = import.meta.glob("./motions/**/*.json", { eager: true, as: "url" });
 	console.log("[#] All motion files are loaded:", modules);
 	const fileOptions = Object.keys(modules).map((path) => path.replace("./motions/", ""));
@@ -221,7 +257,15 @@ async function preLoadAllMotion() {
 		} else {
 			console.warn(`Motion file ${fileOptions[i]} not found.`);
 		}
+		progresBar.value = (i + 1) / fileOptions.length; // Update progress bar
+		progressText.textContent = `Loading: ${fileOptions[i]}...`;
 	}
+
+	// Hide the progress bar and text after loading
+	progresBar.style.display = "none";
+	progressText.style.display = "none";
+	progressDiv.style.display = "none";
+
 	console.log("[#] All motion files are loaded.");
 	console.log("[#] The total number of motion files loaded:", Object.keys(allMotionData));
 	console.log("[#] Motion data structure:", allMotionData);
@@ -405,30 +449,6 @@ function animate() {
 	render();
 }
 
-// function animate() {
-// 	requestAnimationFrame(animate);
-// 	const newTime = performance.now() / 1000; // seconds
-// 	let frameTime = newTime - currentTime;
-
-// 	// Clamp to avoid spiral of death after tab switch
-// 	frameTime = Math.min(frameTime, 0.1);
-
-// 	currentTime = newTime;
-// 	accumulator += frameTime;
-
-// 	while (accumulator >= timestep) {
-// 		// Fixed update logic
-// 		currentFrame = (currentFrame + 1) % framesPerMotion;
-// 		frameControl.frameIndex = currentFrame;
-// 		if (frameController) frameController.updateDisplay();
-// 		updateAllSkeleton();
-// 		accumulator -= timestep;
-// 	}
-
-// 	controls.update();
-// 	render();
-// }
-
 function addRemove_DrawnSkeleton(is_add, idx, fn) {
 	console.log("Adding/removing skeleton at index:", idx, "is_add:", is_add);
 	// Create a new skeleton or update the existing one
@@ -443,7 +463,8 @@ function addRemove_DrawnSkeleton(is_add, idx, fn) {
 		joint: joint,
 		bones: bones,
 		// jointColor: defaultColor.jointColor,
-		jointColor: Math.floor(Math.random() * 0xffffff),
+		// jointColor: Math.floor(Math.random() * 0xffffff),
+		jointColor: defaultColor.jointColorList[(idx - 1) % defaultColor.jointColorList.length],
 		boneColor: defaultColor.boneColor,
 		motionFile: fn || Object.keys(allMotionData)[0],
 		motionIndex: 0, // Default to the first motion

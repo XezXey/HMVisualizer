@@ -1,35 +1,29 @@
 {
-    "masking_root": {
-        "file": "/motions/baselines/LoRA/Siuuu_LoRA_masking_root_LoRA=model000060000_MDM=model000500000.json"
-    },
-    "3": {
-        "file": "/motions/baselines/LoRA+PriorMDM/default/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=.json"
-    },
     "5": {
-        "file": "/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_front.json"
+        "file": "/visualizer/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_front.json"
     },
     "6": {
-        "file": "/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_back.json"
+        "file": "/visualizer/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_back.json"
     },
     "7": {
-        "file": "/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_left.json"
+        "file": "/visualizer/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_left.json"
     },
     "8": {
-        "file": "/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_right.json"
+        "file": "/visualizer/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_right.json"
     },
     "9": {
-        "file": "/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_right_front.json"
+        "file": "/visualizer/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_right_front.json"
     },
     "10": {
-        "file": "/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_right_back.json"
+        "file": "/visualizer/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_right_back.json"
     },
     "11": {
-        "file": "/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_left_front.json"
+        "file": "/visualizer/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_left_front.json"
     },
     "12": {
-        "file": "/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_left_back.json"
+        "file": "/visualizer/motions/baselines/LoRA+PriorMDM/inpainted/Siuuu_LoRA+PriorMDM_root_horizontal_LoRA=model000060000_MDM=model000500000_Suffix=root_horizontal_hardcoded_left_back.json"
     },
     "gt": {
-        "file": "/motions/training_samples/demo_cr7_2.json"
+        "file": "/visualizer/motions/training_samples/demo_cr7_2.json"
     }
 }
