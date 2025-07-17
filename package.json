@@ -1,5 +1,9 @@
 {
   "dependencies": {
-    "node": "^20.19.4"
+    "node": "^20.19.4",
+    "three": "^0.178.0"
+  },
+  "devDependencies": {
+    "lil-gui": "^0.20.0"
   }
 }
