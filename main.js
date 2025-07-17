@@ -1,9 +1,7 @@
 import * as THREE from "./node_modules/three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Reflector } from "three/examples/jsm/objects/Reflector.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { OrbitControls } from "./node_modules/three/examples/jsm/controls/OrbitControls.js";
+import { Reflector } from "./node_modules/three/examples/jsm/objects/Reflector.js";
 import GUI from "./node_modules/lil-gui";
-import { all, color, split } from "./node_modules/three/src/nodes/TSL.js";
 
 // import * as THREE from "https://cdn.skypack.dev/three";
 // import { OrbitControls } from "https://cdn.skypack.dev/three/examples/jsm/controls/OrbitControls.js";
