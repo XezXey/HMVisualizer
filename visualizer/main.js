@@ -1,9 +1,22 @@
-import * as THREE from "./node_modules/three";
-import { OrbitControls } from "./node_modules/three/examples/jsm/controls/OrbitControls.js";
-import { Reflector } from "./node_modules/three/examples/jsm/objects/Reflector.js";
-import { GLTFLoader } from "./node_modules/three/examples/jsm/loaders/GLTFLoader.js";
-import GUI from "./node_modules/lil-gui";
-import { all, color, split } from "./node_modules/three/src/nodes/TSL.js";
+// import * as THREE from "./node_modules/three";
+// import { OrbitControls } from "./node_modules/three/examples/jsm/controls/OrbitControls.js";
+// import { Reflector } from "./node_modules/three/examples/jsm/objects/Reflector.js";
+// import { GLTFLoader } from "./node_modules/three/examples/jsm/loaders/GLTFLoader.js";
+// import GUI from "./node_modules/lil-gui";
+// import { all, color, split } from "./node_modules/three/src/nodes/TSL.js";
+// Three.js core
+import * as THREE from "https://unpkg.com/three@0.158.0/build/three.module.js";
+
+// Controls, Loaders, Reflector from examples
+import { OrbitControls } from "https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js";
+import { Reflector } from "https://unpkg.com/three@0.158.0/examples/jsm/objects/Reflector.js";
+import { GLTFLoader } from "https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js";
+
+// lil-gui (modern GUI for dat.GUI)
+import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.18/+esm";
+
+// TSL nodes from Three.js (advanced shader nodes system)
+import { all, color, split } from "https://unpkg.com/three@0.158.0/examples/jsm/nodes/Nodes.js";
 
 // import * as THREE from "three";
 // import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -74,7 +87,7 @@ let config = {
 	animate: true,
 	visible: true,
 	split: false, // New config option for split the motion data from the center
-	root_dir: "./motions/",
+	root_dir: "./visualizer/motions/",
 	visall: true,
 	// motion_id: 0,
 	// revoke_same_id: false, // New config option to revoke all skeletons to show the same motion id
